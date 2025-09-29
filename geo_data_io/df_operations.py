@@ -20,7 +20,7 @@ def build_data_log_table_entry(f_path, f_name, table_name, data_type, descriptio
                                n_records, n_columns, script_name):
     # get the time stamp - this will happen after the table is written
     last_update = get_date_time_stamp()
-    
+
     source_platform = 'python'
 
     # create our dataframe
@@ -30,12 +30,12 @@ def build_data_log_table_entry(f_path, f_name, table_name, data_type, descriptio
                  'n_records', 'n_columns', 'source_script_name', 'source_platform', 'last_update']
     lt_data = pd.DataFrame(data=lt_data, columns=col_names)
 
-    return(lt_data)
+    return (lt_data)
 
 
 def write_data(obj_to_store, file_path, file_name, table_name='',
                description='', data_export_log_db_path='H:/project/data_export_log',
-               data_export_log_db_name='data_export_log.db', if_exists_option =  'replace'):
+               data_export_log_db_name='data_export_log.db', if_exists_option='replace'):
     # THIS IS A WRAPPER FUNCTION THAT WRITES DATAFRAMES TO DISK.
     # UPON WRITING, A LOG ENTRY IS MADE LISTING WHEN THE DATA/PLOT WAS MADE, WHERE IT WAS STORED,
     # AND THE SCRIPT THAT GENERATED THE DATA
@@ -48,9 +48,9 @@ def write_data(obj_to_store, file_path, file_name, table_name='',
     data_type = file_info[1]
 
     # get the name of the script that created the data
-    #script_name = os.path.basename(__file__)
+    # script_name = os.path.basename(__file__)
     script_name = os.path.realpath(inspect.stack()[-1][1])
-    
+
     # build the fully qualified file path for everything but the database
     if data_type != '.db':
         file_path_name = os.path.join(file_path, file_name)
@@ -65,18 +65,18 @@ def write_data(obj_to_store, file_path, file_name, table_name='',
                                          description=description,
                                          n_records=n_records,
                                          n_columns=n_columns,
-                                         script_name=script_name)                                             
+                                         script_name=script_name)
 
     # add the last update field
     obj_to_store = obj_to_store.copy()
-    obj_to_store['last_update'] = lt_data['last_update'].iloc[0]        
+    obj_to_store['last_update'] = lt_data['last_update'].iloc[0]
 
     if data_type == '.db':
         # 1. sqlite database table
-        # this writes the table of interest to sqlite        
+        # this writes the table of interest to sqlite
         write_data_to_sqlite(df=obj_to_store, table_name=table_name,
                              db_path=file_path, db_name=file_name,
-                             if_exists_option=if_exists_option)       
+                             if_exists_option=if_exists_option)
 
     if data_type in ('.xls', '.xlsx'):
         # 2. excel
@@ -84,16 +84,15 @@ def write_data(obj_to_store, file_path, file_name, table_name='',
 
     if data_type in ('.txt', '.csv'):
         # 3. csv/txt
-        obj_to_store.to_csv(path_or_buf=file_path_name, sep='\t', index=False)    
+        obj_to_store.to_csv(path_or_buf=file_path_name, sep='\t', index=False)
 
     # write to the db of interest if were storing a database
-    if data_type == '.db':        
+    if data_type == '.db':
         write_data_to_sqlite(df=lt_data, table_name='_log_table',
-                         db_path=file_path,
-                         db_name=file_name,
-                         verbose=False,
-                         if_exists_option='append')
-
+                             db_path=file_path,
+                             db_name=file_name,
+                             verbose=False,
+                             if_exists_option='append')
 
     # write to the "global" data export log
     write_data_to_sqlite(df=lt_data, table_name='data_export_log',
@@ -101,7 +100,7 @@ def write_data(obj_to_store, file_path, file_name, table_name='',
                          db_name=data_export_log_db_name,
                          verbose=False,
                          if_exists_option='append')
-    
+
     return None
 
 
@@ -180,13 +179,13 @@ def load_data_from_sqlite(sql, db_path=None, db_name=None,
         df = change_column_name_case(df=df)
 
     if 'last_update' in df.columns.tolist():
-        df = df.drop(labels = 'last_update', axis = 1)
+        df = df.drop(labels='last_update', axis=1)
 
     time_end = perf_counter_ns()
-    time_proc = (time_end - time_start) / 1e9    
-    if verbose:        
+    time_proc = (time_end - time_start) / 1e9
+    if verbose:
         df_rows, df_cols = df.shape
-        display_string = f'...LOADED | {df_rows:,} rows | {df_cols:,} columns | in {round(time_proc,4)} seconds...'          
+        display_string = f'...LOADED | {df_rows:,} rows | {df_cols:,} columns | in {round(time_proc, 4)} seconds...'
         print(display_string)
 
     return df
@@ -344,8 +343,6 @@ def change_column_name_case(df, case_option='lower'):
 
 def set_comparison(a_keys, b_keys, return_option=None, verbose=True,
                    output_file_path_name=None, preamble=None, write_option='a'):
-    
-    
 
     if output_file_path_name:
         output_file = open(output_file_path_name, write_option)
@@ -496,20 +493,27 @@ def export_sql_to_excel(sql, db_path, db_name, sheet_name, output_path,
 
     return None
 
-# calculate an r-squared value
-def calc_r_squared(observed, estimated):
-    import numpy as np
-    r = np.corrcoef(observed, estimated)[0][1]
-    r2 = r ** 2
-    return r2
 
-# calculate the root mean square error
-def calc_RMSE(observed, estimated):
-    import numpy as np
-    res = (observed - estimated) ** 2
-    rmse = round(np.sqrt(np.mean(res)), 3)
+def hey_what_is_na(df: pd.DataFrame):
 
-    return rmse
+    col_names = df.columns.tolist()
+    for cn in col_names:
+        na_check = df[cn].isna().value_counts()
+        if na_check.shape[0] > 1:
+            print(na_check)
+
+    return None
+
+
+def get_a_set(cn: pd.Series):
+    return set(cn.unique().tolist())
+
+
+def split_col_values(cn: pd.Series):
+    output_list = []
+    for cv in cn.unique().tolist():
+        output_list.extend(cv.split('_'))
+    return set(output_list)
 
 
 if __name__ == '__main__':

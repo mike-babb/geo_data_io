@@ -11,8 +11,10 @@ import geopandas as gpd
 import numpy as np
 from osgeo import ogr
 import pandas as pd
+import shapely.geometry
 from shapely.wkt import loads
 from shapely.geometry import Polygon
+
 
 # custom
 from df_operations import \
@@ -563,6 +565,164 @@ def rename_shapefile(s_file_path, base_s_file_name, new_s_file_path,
             os.rename(sfpn, new_sfpn)
 
     return None
+
+
+def write_gdf(gdf: gpd.GeoDataFrame, output_file_path:str, output_file_name:str):
+    
+    ofpn = os.path.join(output_file_path, output_file_name)
+
+    if 'coords' in gdf.columns:
+        output_gdf = gdf.drop(labels = ['coords'], axis = 1)
+        output_gdf.to_file(filename = ofpn, driver = 'GPKG', index = False)
+    else:
+        gdf.to_file(filename = ofpn, driver = 'GPKG', index = False)
+
+    return None
+
+
+def check_MultiLineStrings(geom:shapely.geometry):
+    # does every MultiLineString need to be a MultilineString?
+    output = geom
+    if geom.geom_type == 'MultiLineString':
+        new_geom = linemerge(lines = geom)
+        if new_geom.geom_type == 'LineString':
+            output = new_geom
+    return output
+
+
+def keep_largest_geometry(gdf:gpd.GeoDataFrame,group_col_names:list = None):
+
+    # explode MultiPolygon Geometries and keep only the largest.
+    # this removes slivers and splinters.
+        
+    # explode
+    gdf = gdf.explode()
+    keep_col_names = gdf.columns
+    # select only Polygon or MultiPolygon geometries
+    # some geospatial operations produce errant points and LineStrings
+    gdf = gdf.loc[gdf['geometry'].geom_type.isin(['Polygon', 'MultiPolygon']), :]
+
+    # keep the biggest piece / remove slivers.
+    # Compute the area to accomplish this
+    gdf['geom_area'] = gdf['geometry'].area
+    
+    if group_col_names is None:
+        gdf['area_rank'] = gdf['geom_area'].rank(method = 'dense', ascending=False)
+    else:
+        gdf['area_rank'] = gdf.groupby(group_col_names)['geom_area'].rank(method = 'dense', ascending=False)
+    
+    # keep the largest, drop the area_rank column
+    gdf = gdf.loc[gdf['area_rank'] == 1, keep_col_names]
+
+    return gdf
+
+def build_gdf_from_geom(geom:shapely.geometry, remove_slivers:bool=True, 
+                        return_geom:bool=False,
+                        crs:int=4326):
+    # given a single shapely geometry, create a dataframe from it.
+    # optionally remove the slivers 
+    gdf = gpd.GeoDataFrame(data = {'id':[0]}, geometry=[geom], crs = crs)
+    if remove_slivers:
+        gdf = keep_largest_geometry(gdf = gdf)
+    
+    # optionally, return only the geometry
+    if return_geom:
+        output = gdf['geometry'].iloc[0]
+    else:
+        output = gdf
+
+    return output
+
+
+# let's do some fun inner ring buffering
+def inner_ring_buffer(gdf:gpd.GeoDataFrame, dist_start:int, dist_end:int, buff_dist:int):
+
+    # output lists
+    # polygon
+    output_data_list = []
+    output_geom_list = []
+
+    # lines
+    output_line_data_list = []
+    output_line_geom_list = []
+    col_names = gdf.columns.tolist()
+    col_names.remove('geometry')
+
+    for ir, row in gdf.iterrows():
+        
+        # the focal geometry
+        geom = row['geometry']
+        # the perimeter
+        perim = geom.boundary
+        # a dictionary to store the previously created buffer
+        # important for creating rings
+        previous_buff_dict = {}
+        # buffer out 10 units at a time. The units are the same as the units of the
+        # geometry's coordinate system.
+        for i_dist in range(dist_start, dist_end + 1, buff_dist):
+            # buffer the perimeter. This creates geometry that is both on the inside
+            # and outside of the input focal geometry
+            my_buff = perim.buffer(distance= i_dist)
+            
+            # perform an intersection to get only the stuff on the inside.
+            my_buff = my_buff.intersection(geom)
+            
+            # remove slivers and splinters
+            my_buff = build_gdf_from_geom(geom = my_buff,return_geom=True, crs = gdf.crs)        
+            
+            # add this cleaned geometry to the previous buffer dictionary
+            previous_buff_dict[i_dist] = my_buff
+
+            # now, clip it to the previous buffer
+            if i_dist > 10:
+                previous_buff = previous_buff_dict[i_dist - 10] 
+                # the difference is the part that doesn't overlap - this is the 
+                # next ring in the series. 
+                my_buff = my_buff.difference(previous_buff)
+                
+                my_buff = build_gdf_from_geom(geom = my_buff, return_geom=True, crs = gdf.crs)        
+            
+            # this is for the polygon output                
+            temp_list = [row[cn] for cn in col_names]
+            temp_list.append(i_dist)
+            output_data_list.append(temp_list)
+            output_geom_list.append(my_buff)
+
+            # extract the lines for these inner ring buffers. 
+            # one-stop shopping
+            line_index = 0
+            geom_boundary = my_buff.boundary
+            if geom_boundary.geom_type == 'MultiLineString':            
+                geom_list = geom_boundary.geoms
+            else:
+                geom_list = [geom_boundary]
+
+            for line_geom in geom_list:
+                curr_list = temp_list[:]
+                curr_list.append(line_index)
+                output_line_data_list.append(curr_list)
+                output_line_geom_list.append(line_geom)
+                line_index += 1
+
+
+        print('Processing row:', f"{ir:,}")
+
+    # create the polygon output gdf
+    output_col_names = col_names[:]
+    output_col_names.append('distance')
+    output_gdf = gpd.GeoDataFrame(data = output_data_list, geometry = output_geom_list,
+                                crs = gdf.crs, columns = output_col_names)
+    
+        # create the line output gdf
+    output_col_names = col_names[:]
+    output_col_names.append('distance')
+    output_col_names.append('line_index')
+    output_line_gdf = gpd.GeoDataFrame(data = output_line_data_list, geometry = output_line_geom_list,
+                                crs = gdf.crs, columns = output_col_names)
+    
+    return (output_gdf, output_line_gdf)
+
+
 
 
 if __name__ == '__main__':

@@ -30,6 +30,24 @@ def percent_change(b_value, e_value, round_val = True):
 
     return per_change
 
+
+# calculate an r-squared value
+def calc_r_squared(observed, estimated):
+    import numpy as np
+    r = np.corrcoef(observed, estimated)[0][1]
+    r2 = r ** 2
+    return r2
+
+# calculate the root mean square error
+def calc_RMSE(observed, estimated):
+    import numpy as np
+    res = (observed - estimated) ** 2
+    rmse = round(np.sqrt(np.mean(res)), 3)
+
+    return rmse
+
+
+
 if __name__ == '__main__':
 
     print(get_CAGR(5, 10, 2))

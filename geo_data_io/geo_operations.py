@@ -78,6 +78,9 @@ def calculate_initial_compass_bearing(point_a, point_b):
 
     return compass_bearing
 
+
+
+
 if __name__ == '__main__':
 
 

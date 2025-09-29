@@ -25,6 +25,24 @@ def load_pickle(file_in_path, file_in_name):
     return unpickled
 
 
+def write_json(json_data: str, output_file_path: str,
+               output_file_name: str, var_name: str = None):
+
+    ofpn = os.path.join(output_file_path, output_file_name)
+    if var_name is None:
+        var_name_str = os.path.splitext(output_file_name)[0]
+    else:
+        var_name_str = var_name
+
+    print(var_name_str)
+    with open(ofpn, 'w') as file:
+        write_line = 'var {} ='.format(var_name_str)
+        file.write(write_line)
+        file.write(json_data)
+
+    return None
+
+
 if __name__ == '__main__':
 
     example_dict = {1: "6", 2: "2", 3: "f"}
