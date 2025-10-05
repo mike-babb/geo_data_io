@@ -14,6 +14,7 @@ import pandas as pd
 import shapely.geometry
 from shapely.wkt import loads
 from shapely.geometry import Polygon
+from shapely.ops import linemerge
 
 
 # custom
