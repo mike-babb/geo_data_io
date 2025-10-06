@@ -591,7 +591,9 @@ def check_MultiLineStrings(geom:shapely.geometry):
     return output
 
 
-def keep_largest_geometry(gdf:gpd.GeoDataFrame,group_col_names:list = None):
+def keep_largest_geometry(gdf:gpd.GeoDataFrame,
+                          group_col_names:list = None,
+                          keep_top_n:int = 1, column_id_name:str = None):
 
     # explode MultiPolygon Geometries and keep only the largest.
     # this removes slivers and splinters.
@@ -611,11 +613,17 @@ def keep_largest_geometry(gdf:gpd.GeoDataFrame,group_col_names:list = None):
         gdf['area_rank'] = gdf['geom_area'].rank(method = 'dense', ascending=False)
     else:
         gdf['area_rank'] = gdf.groupby(group_col_names)['geom_area'].rank(method = 'dense', ascending=False)
+
+    if column_id_name is not None:
+        gdf[column_id_name] = gdf['area_rank'].astype(int)        
     
-    # keep the largest, drop the area_rank column
-    gdf = gdf.loc[gdf['area_rank'] == 1, keep_col_names]
+    # keep the largest, drop the area_rank column    
+    gdf = gdf.loc[gdf['area_rank'] <= keep_top_n, keep_col_names]
 
     return gdf
+
+
+
 
 def build_gdf_from_geom(geom:shapely.geometry, remove_slivers:bool=True, 
                         return_geom:bool=False,
