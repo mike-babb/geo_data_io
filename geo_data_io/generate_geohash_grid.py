@@ -602,7 +602,7 @@ def make_geohash_coverage(df, o_file_path, o_file_name,
     gh_geos = gh_geo_series.map(mpfb)
 
     # let's create a geodataframe
-    wgs84_crs = {'init': 'epsg:4326'}
+    wgs84_crs = 'epsg:4326'
     gh_gdf = gpd.GeoDataFrame(data=df, geometry=gh_geos, crs=wgs84_crs)
 
     # to disk
