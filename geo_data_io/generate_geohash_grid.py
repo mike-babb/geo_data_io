@@ -497,6 +497,7 @@ def enumerate_geometry(geo_df, geo_id_fn, area_fn, geo_fn,
             # send to the multi-processor function.
             # or process in sequence.
             if pool_option == 'multi':
+                print('...beginning multi-processing...')
                 with Pool(processes=6) as p:
                     write_list = p.map(get_coverage, process_list)
                     # write_list = [p.map_async(get_coverage, process_list).get()[0]]
