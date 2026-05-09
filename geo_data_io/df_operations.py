@@ -343,6 +343,13 @@ def change_column_name_case(df, case_option='lower'):
 
 def set_comparison(a_keys, b_keys, return_option=None, verbose=True,
                    output_file_path_name=None, preamble=None, write_option='a'):
+    
+    if not isinstance(a_keys, set):
+        a_keys = set(a_keys)
+    
+    if not isinstance(b_keys, set):
+        b_keys = set(b_keys)
+        
 
     if output_file_path_name:
         output_file = open(output_file_path_name, write_option)
