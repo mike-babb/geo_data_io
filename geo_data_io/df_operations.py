@@ -501,7 +501,7 @@ def export_sql_to_excel(sql, db_path, db_name, sheet_name, output_path,
     return None
 
 
-def hey_what_is_na(df: pd.DataFrame):
+def hey_what_is_na(df: pd.DataFrame, return_na_cols = True):
 
     col_names = df.columns.tolist()
     for cn in col_names:
@@ -509,7 +509,13 @@ def hey_what_is_na(df: pd.DataFrame):
         if na_check.shape[0] > 1:
             print(na_check)
 
-    return None
+    if return_na_cols:
+        null_cols = df.isna().any().to_frame(name = 'is_na').reset_index(names = ['col_name'])
+        null_cols = null_cols.loc[null_cols['is_na'], 'col_name'].tolist()
+    else:
+        null_cols = None
+
+    return null_cols
 
 
 def get_a_set(cn: pd.Series):
